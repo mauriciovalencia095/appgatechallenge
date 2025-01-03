@@ -16,8 +16,7 @@ pipeline {
         stage('Build and Test') {
             steps {
                 script {
-                    // Ejecuta las pruebas
-                    sh './gradlew clean test'
+                    bat './gradlew clean test'
                 }
             }
         }
@@ -26,7 +25,7 @@ pipeline {
             steps {
                 script {
                     // Genera el reporte de Allure
-                    sh './gradlew allureReport'
+                    bat './gradlew allureReport'
                 }
             }
         }

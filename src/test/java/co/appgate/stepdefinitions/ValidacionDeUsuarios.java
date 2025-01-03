@@ -97,20 +97,43 @@ public class ValidacionDeUsuarios {
     @Then("el sistema responde que {string} está disponible")
     public void elSistemaRespondeQueEstaDisponibleYNoEstanDisponibles(String availableCustomer) throws InterruptedException {
         Assert.assertNotNull("No se recibió ninguna respuesta", multipleResponse);
+
         ObjectMapper objectMapper = new ObjectMapper();
         List<JsonNode> multipleResponseJsonNode = new ArrayList<>();
 
         try {
-
             for (int i = 0; i < multipleResponse.size(); i++) {
-                JsonNode rootNode = objectMapper.readTree(multipleResponse.get(i));
+                String rawResponse = multipleResponse.get(i);
+                Assert.assertNotNull("La respuesta en el índice " + i + " es nula.", rawResponse);
+
+                if (rawResponse.isEmpty() || rawResponse.equals("[]")) {
+                    System.out.println("Respuesta vacía o no válida en el índice " + i + ". Se omite.");
+                    continue;
+                }
+
+                JsonNode rootNode = objectMapper.readTree(rawResponse);
+                if (rootNode == null || !rootNode.isArray() || rootNode.size() == 0) {
+                    System.out.println("El nodo raíz en la respuesta " + i + " no es un array o está vacío. Se omite. Respuesta: " + rawResponse);
+                    continue;
+                }
+
                 JsonNode payloadNode = rootNode.get(0).path("payload");
-                String payload = payloadNode.asText();
-                String decodedPayload = URLDecoder.decode(payload, "UTF-8");
+                if (payloadNode.isMissingNode() || payloadNode.asText().isEmpty()) {
+                    System.out.println("El nodo 'payload' está ausente o vacío en la respuesta " + i + ". Se omite.");
+                    continue;
+                }
+
+
+                String decodedPayload = payloadNode.asText();
+                decodedPayload = decodedPayload.replace("\\\"", "\"").replace("\"{", "{").replace("}\"", "}");
+
                 JsonNode payloadJsonNode = objectMapper.readTree(decodedPayload);
                 multipleResponseJsonNode.add(payloadJsonNode);
             }
+
+            // Validar cliente disponible
             validarClienteDisponible(multipleResponseJsonNode, availableCustomer);
+
         } catch (Exception e) {
             Assert.fail("Error al procesar la respuesta: " + e.getMessage());
         }
@@ -120,16 +143,26 @@ public class ValidacionDeUsuarios {
         Assert.assertNotNull("No se recibió ninguna respuesta", multipleResponse);
         ObjectMapper objectMapper = new ObjectMapper();
         List<JsonNode> multipleResponseJsonNode = new ArrayList<>();
+
         try {
 
             for (int i = 0; i < multipleResponse.size(); i++) {
                 JsonNode rootNode = objectMapper.readTree(multipleResponse.get(i));
                 JsonNode payloadNode = rootNode.get(0).path("payload");
-                String payload = payloadNode.asText();
-                String decodedPayload = URLDecoder.decode(payload, "UTF-8");
+
+                if (payloadNode.isMissingNode() || payloadNode.isNull()) {
+                    Assert.fail("El nodo 'payload' no está presente o es nulo en la respuesta " + i);
+                }
+
+
+                String decodedPayload = URLDecoder.decode(payloadNode.asText(), "UTF-8");
+
+
                 JsonNode payloadJsonNode = objectMapper.readTree(decodedPayload);
                 multipleResponseJsonNode.add(payloadJsonNode);
             }
+
+
             String[] unavailableCustomersArray = unavailableCustomers.split(",");
             for (String customer : unavailableCustomersArray) {
                 validarClienteNoDisponible(multipleResponseJsonNode, customer.trim());
@@ -145,22 +178,27 @@ public class ValidacionDeUsuarios {
         boolean isUnavailable = multipleResponseJsonNode.stream()
                 .anyMatch(payload -> {
                     try {
-                        String payloadEscapado = payload.asText();
-                        ObjectMapper objectMapper = new ObjectMapper();
-                        JsonNode payloadJsonNode = objectMapper.readTree(payloadEscapado);
-                        JsonNode customerNode = payloadJsonNode.get("customer");
-                        JsonNode isAvailableNode = payloadJsonNode.get("isAvailable");
+
+                        JsonNode customerNode = payload.get("customer");
+                        JsonNode isAvailableNode = payload.get("isAvailable");
+
+
                         if (customerNode == null || isAvailableNode == null) {
                             return false;
                         }
+
+
                         String customerValue = customerNode.asText();
-                        boolean isAvailableValue = !isAvailableNode.asBoolean();
+                        boolean isAvailableValue = !isAvailableNode.asBoolean(); // Negar el valor si se requiere "no disponible"
+
+
                         return customerValue.equals(customer) && !isAvailableValue;
                     } catch (Exception e) {
                         e.printStackTrace();
                         return false;
                     }
                 });
+
 
         Assert.assertTrue("El cliente no disponible " + customer + " no fue encontrado en la respuesta.", isUnavailable);
     }

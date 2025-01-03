@@ -154,14 +154,11 @@ public class ValidacionDeUsuarios {
                     Assert.fail("El nodo 'payload' no está presente o es nulo en la respuesta " + i);
                 }
 
-
                 String decodedPayload = URLDecoder.decode(payloadNode.asText(), "UTF-8");
-
 
                 JsonNode payloadJsonNode = objectMapper.readTree(decodedPayload);
                 multipleResponseJsonNode.add(payloadJsonNode);
             }
-
 
             String[] unavailableCustomersArray = unavailableCustomers.split(",");
             for (String customer : unavailableCustomersArray) {

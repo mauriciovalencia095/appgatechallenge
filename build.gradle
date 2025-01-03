@@ -6,7 +6,7 @@ plugins {
 group 'co.appgate'
 version '1.0'
 
-def allureVersion = "2.13.6"
+def allureVersion = "2.20.0"
 def junit4Version = "4.12"
 def cucumberVersion = "5.7.0"
 
